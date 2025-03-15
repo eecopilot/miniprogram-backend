@@ -1,9 +1,14 @@
-import { Hono } from 'hono'
+import { Hono } from 'hono';
+import { Bindings } from './types/global';
+import { drizzle } from 'drizzle-orm/d1';
+import * as schema from './db/schema';
+const app = new Hono<{ Bindings: Bindings }>();
 
-const app = new Hono()
+app.get('/', async (c) => {
+  // const token = c.env.token;
+  const db = drizzle(c.env.DB);
+  const users = await db.select().from(schema.users).all();
+  return c.json(users);
+});
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
-
-export default app
+export default app;
