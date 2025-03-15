@@ -2,6 +2,7 @@ import { Context, Next } from 'hono';
 import { verify } from 'hono/jwt';
 import { Bindings } from '../types/global';
 import { findUserByOpenid } from '../services/user';
+import { findSessionByToken, extendSession } from '../services/session';
 
 export interface AuthContext {
   userId: number;
@@ -29,6 +30,23 @@ export const authMiddleware = async (
     if (!dbUser || dbUser.length === 0) {
       return c.json({ error: 'User not found' }, 404);
     }
+
+    // 检查会话是否存在且未过期
+    const session = await findSessionByToken(token, c.env.DB);
+    if (!session) {
+      return c.json({ error: 'Session not found' }, 401);
+    }
+
+    // 检查会话是否已过期
+    const now = new Date();
+    if (new Date(session.expiresAt) < now) {
+      return c.json({ error: 'Session expired' }, 401);
+    }
+
+    // 会话续期 - 延长7天
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+    await extendSession(token, newExpiresAt, c.env.DB);
 
     // 将用户信息存储在上下文中，以便后续处理
     c.set('auth', {

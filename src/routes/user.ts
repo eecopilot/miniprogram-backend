@@ -26,7 +26,7 @@ import {
   LoginResponse,
 } from '../types/user';
 import { findUserByOpenid, createUser, findUserById } from '../services/user';
-import { createSession } from '../services/session';
+import { createSession, deleteSession } from '../services/session';
 import { authMiddleware, AuthContext } from '../middleware/auth';
 
 // 创建路由实例
@@ -159,6 +159,24 @@ userRouter.get('/verify', async (c) => {
   } catch (error) {
     console.error('Token verification error:', error);
     return c.json({ error: 'Invalid token' }, 401);
+  }
+});
+
+// 登出接口
+userRouter.post('/logout', authMiddleware, async (c) => {
+  try {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // 删除会话
+    await deleteSession(token, c.env.DB);
+
+    return c.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
   }
 });
 
