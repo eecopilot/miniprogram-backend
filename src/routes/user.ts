@@ -35,13 +35,6 @@ const userRouter = new Hono<{
   Variables: { auth: AuthContext };
 }>();
 
-// 测试路由
-userRouter.get('/test', (c) => {
-  return c.json({
-    message: '测试成功',
-  });
-});
-
 // 用户登录不需要验证
 userRouter.post('/login', async (c) => {
   try {

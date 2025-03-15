@@ -2,6 +2,7 @@
   "name": "miniprogram-backend",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:wx": "NODE_ENV=development wrangler dev",
     "deploy": "wrangler deploy --minify",
     "db:generate": "drizzle-kit generate",
     "db:up": "drizzle-kit up:sqlite"

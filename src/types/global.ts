@@ -5,6 +5,7 @@ export type Bindings = {
   DB: D1Database;
   JWT_SECRET: string;
   token: string;
+  NODE_ENV?: string;
   // TODO: 添加数据库相关的 binding
   // USER_DB: D1Database;
   // JWT_SECRET: string;
