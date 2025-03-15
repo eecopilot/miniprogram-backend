@@ -17,7 +17,7 @@
  */
 
 import { Hono } from 'hono';
-import { sign } from 'hono/jwt';
+import { sign, verify } from 'hono/jwt';
 import { Bindings } from '../types/global';
 import {
   WechatLoginParams,
@@ -143,6 +143,22 @@ userRouter.get('/profile', async (c) => {
   } catch (error) {
     console.error('Profile error:', error);
     return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// 提供一个接口，给worker验证token
+userRouter.get('/verify', async (c) => {
+  const token = c.req.header('Authorization');
+  if (!token) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  try {
+    const payload = await verify(token, c.env.JWT_SECRET);
+    const isValid = Boolean(payload.openid);
+    return c.json({ isValid });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return c.json({ error: 'Invalid token' }, 401);
   }
 });
 

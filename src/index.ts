@@ -8,6 +8,15 @@ import devRouter from './routes/dev';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+// 添加内部 token 验证中间件
+app.use('*', async (c, next) => {
+  const token = c.req.header('x-custom-token');
+  if (token !== c.env.internalToken) {
+    return c.text('Unauthorized', 401);
+  }
+  await next();
+});
+
 // 根路由
 app.get('/', async (c) => {
   // const token = c.env.token;
