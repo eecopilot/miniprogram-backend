@@ -2,13 +2,19 @@
   "name": "miniprogram-backend",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify"
+    "dev:wx": "NODE_ENV=development wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "db:generate": "drizzle-kit generate",
+    "db:up": "drizzle-kit up:sqlite"
   },
   "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "drizzle-orm": "^0.40.0",
     "hono": "^4.7.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250214.0",
-    "wrangler": "^3.109.2"
+    "drizzle-kit": "^0.30.5",
+    "wrangler": "^4.0.0"
   }
 }
