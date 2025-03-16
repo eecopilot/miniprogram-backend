@@ -5,10 +5,11 @@
   "compatibility_date": "2025-03-15",
   "vars": {
     "token": "thisisatesttoken",
-    "JWT_SECRET": "your_jwt_secret_key_for_development",
+    "JWT_SECRET": "your_jwt_secret_key_for_default",
     "NODE_ENV": "development",
     "WECHAT_APP_ID": "mock_appid",
-    "WECHAT_SECRET": "mock_secret"
+    "WECHAT_SECRET": "mock_secret",
+    "internalToken": "dev-token"
   },
   "d1_databases": [
     {
@@ -16,5 +17,25 @@
       "database_name": "miniprogram",
       "database_id": "7ca33dda-ad5c-48d3-b121-2fbb8aa54e88"
     }
-  ]
+  ],
+  "env": {
+    "development": {
+      "vars": {
+        "NODE_ENV": "development",
+        "JWT_SECRET": "your_jwt_secret_key_for_development",
+        "WECHAT_APP_ID": "${WECHAT_APP_ID}",
+        "WECHAT_SECRET": "${WECHAT_SECRET}",
+        "internalToken": "dev-token"
+      }
+    },
+    "production": {
+      "vars": {
+        "NODE_ENV": "production",
+        "JWT_SECRET": "your_jwt_secret_key_for_production",
+        "WECHAT_APP_ID": "${WECHAT_APP_ID}",
+        "WECHAT_SECRET": "${WECHAT_SECRET}",
+        "internalToken": "fc481f51-24f4-4bc3-83ad-8ab904969a60"
+      }
+    }
+  }
 }

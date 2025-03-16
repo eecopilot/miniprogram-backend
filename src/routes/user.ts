@@ -17,7 +17,7 @@
  */
 
 import { Hono } from 'hono';
-import { sign } from 'hono/jwt';
+import { sign, verify } from 'hono/jwt';
 import { Bindings } from '../types/global';
 import {
   WechatLoginParams,
@@ -26,7 +26,7 @@ import {
   LoginResponse,
 } from '../types/user';
 import { findUserByOpenid, createUser, findUserById } from '../services/user';
-import { createSession } from '../services/session';
+import { createSession, deleteSession } from '../services/session';
 import { authMiddleware, AuthContext } from '../middleware/auth';
 
 // 创建路由实例
@@ -142,6 +142,40 @@ userRouter.get('/profile', async (c) => {
     return c.json({ user });
   } catch (error) {
     console.error('Profile error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// 提供一个接口，给worker验证token
+userRouter.get('/verify', async (c) => {
+  const token = c.req.header('Authorization');
+  if (!token) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  try {
+    const payload = await verify(token, c.env.JWT_SECRET);
+    const isValid = Boolean(payload.openid);
+    return c.json({ isValid });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return c.json({ error: 'Invalid token' }, 401);
+  }
+});
+
+// 登出接口
+userRouter.post('/logout', authMiddleware, async (c) => {
+  try {
+    const token = c.req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // 删除会话
+    await deleteSession(token, c.env.DB);
+
+    return c.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
