@@ -26,7 +26,11 @@ import {
   LoginResponse,
 } from '../types/user';
 import { findUserByOpenid, createUser, findUserById } from '../services/user';
-import { createSession, deleteSession } from '../services/session';
+import {
+  createSession,
+  deleteSession,
+  extendSession,
+} from '../services/session';
 import { authMiddleware, AuthContext } from '../middleware/auth';
 
 // 创建路由实例
@@ -146,7 +150,7 @@ userRouter.get('/profile', async (c) => {
   }
 });
 
-// 提供一个接口，给worker验证token
+// 提供一个接口，给另一个 worker 验证token
 userRouter.get('/verify', async (c) => {
   const token = c.req.header('Authorization');
   if (!token) {
@@ -160,6 +164,21 @@ userRouter.get('/verify', async (c) => {
     console.error('Token verification error:', error);
     return c.json({ error: 'Invalid token' }, 401);
   }
+});
+
+// 提供一个接口，给另一个 worker 续期session
+userRouter.post('/session-extend', async (c) => {
+  const token = c.req.header('Authorization');
+  if (!token) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // 续期session
+  const newExpiresAt = new Date();
+  newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+  await extendSession(token, newExpiresAt, c.env.DB);
+
+  return c.json({ success: true, message: 'Session extended successfully' });
 });
 
 // 登出接口
