@@ -30,6 +30,7 @@ import {
   createSession,
   deleteSession,
   extendSession,
+  findSessionsByUserId,
 } from '../services/session';
 import { authMiddleware, AuthContext } from '../middleware/auth';
 
@@ -92,7 +93,31 @@ userRouter.post('/login', async (c) => {
       },
       c.env.JWT_SECRET
     );
+    // 检查用户是否已有会话，如果有则只更新过期时间
+    const existingSessions = await findSessionsByUserId(
+      userResult.id,
+      c.env.DB
+    );
+    if (existingSessions && existingSessions.length > 0) {
+      // 找到最近的会话并延长其有效期
+      const latestSession = existingSessions.reduce((latest, current) => {
+        return new Date(latest.expiresAt) > new Date(current.expiresAt)
+          ? latest
+          : current;
+      });
 
+      // 延长会话有效期
+      const newExpiresAt = new Date();
+      newExpiresAt.setDate(newExpiresAt.getDate() + 7); // 延长7天
+
+      await extendSession(latestSession.token, newExpiresAt, c.env.DB);
+
+      // 使用现有会话的token
+      return c.json<LoginResponse>({
+        token: latestSession.token,
+        user,
+      });
+    }
     // 保存会话到数据库
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
