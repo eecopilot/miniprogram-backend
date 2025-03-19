@@ -34,6 +34,16 @@ export const findSessionByToken = async (token: string, d1: D1Database) => {
   return session.length > 0 ? session[0] : null;
 };
 
+// 根据用户ID查找会话
+export const findSessionsByUserId = async (userId: number, d1: D1Database) => {
+  const db = drizzle(d1, { schema });
+  const sessions = await db
+    .select()
+    .from(schema.sessions)
+    .where(eq(schema.sessions.userId, userId));
+  return sessions;
+};
+
 // 更新会话过期时间
 export const extendSession = async (
   token: string,

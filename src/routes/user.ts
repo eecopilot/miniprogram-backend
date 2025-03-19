@@ -26,7 +26,12 @@ import {
   LoginResponse,
 } from '../types/user';
 import { findUserByOpenid, createUser, findUserById } from '../services/user';
-import { createSession, deleteSession } from '../services/session';
+import {
+  createSession,
+  deleteSession,
+  extendSession,
+  findSessionsByUserId,
+} from '../services/session';
 import { authMiddleware, AuthContext } from '../middleware/auth';
 
 // 创建路由实例
@@ -88,7 +93,31 @@ userRouter.post('/login', async (c) => {
       },
       c.env.JWT_SECRET
     );
+    // 检查用户是否已有会话，如果有则只更新过期时间
+    const existingSessions = await findSessionsByUserId(
+      userResult.id,
+      c.env.DB
+    );
+    if (existingSessions && existingSessions.length > 0) {
+      // 找到最近的会话并延长其有效期
+      const latestSession = existingSessions.reduce((latest, current) => {
+        return new Date(latest.expiresAt) > new Date(current.expiresAt)
+          ? latest
+          : current;
+      });
 
+      // 延长会话有效期
+      const newExpiresAt = new Date();
+      newExpiresAt.setDate(newExpiresAt.getDate() + 7); // 延长7天
+
+      await extendSession(latestSession.token, newExpiresAt, c.env.DB);
+
+      // 使用现有会话的token
+      return c.json<LoginResponse>({
+        token: latestSession.token,
+        user,
+      });
+    }
     // 保存会话到数据库
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
@@ -146,7 +175,7 @@ userRouter.get('/profile', async (c) => {
   }
 });
 
-// 提供一个接口，给worker验证token
+// 提供一个接口，给另一个 worker 验证token
 userRouter.get('/verify', async (c) => {
   const token = c.req.header('Authorization');
   if (!token) {
@@ -160,6 +189,21 @@ userRouter.get('/verify', async (c) => {
     console.error('Token verification error:', error);
     return c.json({ error: 'Invalid token' }, 401);
   }
+});
+
+// 提供一个接口，给另一个 worker 续期session
+userRouter.post('/session-extend', async (c) => {
+  const token = c.req.header('Authorization');
+  if (!token) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // 续期session
+  const newExpiresAt = new Date();
+  newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+  await extendSession(token, newExpiresAt, c.env.DB);
+
+  return c.json({ success: true, message: 'Session extended successfully' });
 });
 
 // 登出接口

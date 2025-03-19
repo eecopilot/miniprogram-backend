@@ -3,12 +3,24 @@ import { sign } from 'hono/jwt';
 import { Bindings } from '../types/global';
 import { User, LoginResponse } from '../types/user';
 import { findUserByOpenid, createUser } from '../services/user';
-import { createSession } from '../services/session';
+import {
+  createSession,
+  findSessionsByUserId,
+  extendSession,
+} from '../services/session';
 
 const devRouter = new Hono<{ Bindings: Bindings }>();
 
+type RespData = {
+  openid: string;
+  session_key: string;
+  unionid?: string;
+  errcode?: number;
+  errmsg?: string;
+};
 // 本地开发环境登录接口
 devRouter.post('/dev/login', async (c) => {
+  const { code } = await c.req.json();
   try {
     // 从请求体中获取测试用的code
     const { code } = await c.req.json();
@@ -18,11 +30,39 @@ devRouter.post('/dev/login', async (c) => {
     }
 
     // 调用模拟的微信接口
-    const mockWxUrl = `${
-      c.req.url.split('/dev')[0]
-    }/mock/wx/jscode2session?appid=mock_appid&secret=mock_secret&js_code=${code}&grant_type=authorization_code`;
-
-    const response = await fetch(mockWxUrl);
+    // mock接口返回
+    // 直接模拟微信登录接口返回数据，不发送实际请求
+    const response = new Response(
+      JSON.stringify({
+        openid: `dev_openid_${code}`,
+        session_key: `dev_session_key_${Date.now()}`,
+        unionid: `dev_unionid_${code}`,
+      }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    // 调用模拟的微信接口
+    // const mockUrl = new URL(c.req.url);
+    // const baseUrl = `${mockUrl.protocol}//${mockUrl.host}`;
+    // console.log('baseUrl', baseUrl);
+    // response = await fetch(
+    //   `${baseUrl}/api/mock/wx/jscode2session?js_code=${code}&appid=dev_appid`,
+    //   {
+    //     method: 'GET',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //   }
+    // );
+    // const response = await fetch('https://user.holdrop.com', {
+    //   method: 'GET',
+    //   headers: {
+    //     'User-Agent': 'Cloudflare Worker',
+    //     Accept: '*/*',
+    //   },
+    // });
+    // console.log('response', response.status);
     const data = (await response.json()) as {
       openid: string;
       session_key: string;
@@ -69,7 +109,31 @@ devRouter.post('/dev/login', async (c) => {
       },
       c.env.JWT_SECRET
     );
+    // 检查用户是否已有会话，如果有则只更新过期时间
+    const existingSessions = await findSessionsByUserId(
+      userResult.id,
+      c.env.DB
+    );
+    if (existingSessions && existingSessions.length > 0) {
+      // 找到最近的会话并延长其有效期
+      const latestSession = existingSessions.reduce((latest, current) => {
+        return new Date(latest.expiresAt) > new Date(current.expiresAt)
+          ? latest
+          : current;
+      });
 
+      // 延长会话有效期
+      const newExpiresAt = new Date();
+      newExpiresAt.setDate(newExpiresAt.getDate() + 7); // 延长7天
+
+      await extendSession(latestSession.token, newExpiresAt, c.env.DB);
+
+      // 使用现有会话的token
+      return c.json<LoginResponse>({
+        token: latestSession.token,
+        user,
+      });
+    }
     // 保存会话到数据库
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
